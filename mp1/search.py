@@ -144,8 +144,11 @@ class state:
     def getH_corner(self, heuristic):
         return heuristic(self.node, self.objs)
 
+    def getH_multi(self, heuristic, MST_table, Manhatten_table):
+        return heuristic(self.node, self.objs, Manhatten_table, MST_table)
+
     def print_state(self):
-        print(self.node, self.objs)
+        print("Node:",self.node,"Obj list:",self.objs)
 
 def astar_corner(maze):
     #state representation in the class "state"
@@ -195,6 +198,14 @@ def astar_corner(maze):
                     break
             if flag:
                 continue
+
+            for x in frontier:
+                if x == reached_state:
+                    flag = 1
+                    break
+            if flag:
+                continue
+
             frontier[reached_state] = new_g + reached_state.getH_corner(
                 Heu_Corner)
             prev[reached_state] = curState
@@ -230,15 +241,12 @@ class dset:
         return -1*self.upTree[root]
     
 
-def Heu_Multi(curNode, unvisited_obj, mst_length):
-    #Heuristic: Manhatten Distance to the nearest unvisited city + total length of MST of unvisited cities
 
-    #First, we find the MST total length
-    near_dist = min([Heu_Manhatten(x, curNode) for x in unvisited_obj])
-    return mst_length + near_dist
-
-
-def Find_Mst(unvisited_obj, Manhatten_table):
+def Find_Mst(unvisited_obj, MST_table, Manhatten_table):
+    if not unvisited_obj:
+        return 0
+    if frozenset(unvisited_obj) in MST_table:
+        return MST_table[frozenset(unvisited_obj)]
     path_cost = PriorityQueue()
     total_path_cost = 0
     path_collection = []
@@ -261,6 +269,8 @@ def Find_Mst(unvisited_obj, Manhatten_table):
         path_collection.append(cur_path[1])
     #Cache Value
     print(total_path_cost)
+    #Cache total_path_cost
+    MST_table[frozenset(unvisited_obj)] = total_path_cost
     return total_path_cost
 
 def Compute_Manhatten(unvisited_obj):
@@ -271,6 +281,17 @@ def Compute_Manhatten(unvisited_obj):
             Manhatten_table[unvisited_obj[i], unvisited_obj[j]] = Heu_Manhatten(
                 unvisited_obj[i], unvisited_obj[j])
     return Manhatten_table
+
+
+def Heu_Multi(curNode, unvisited_obj, Manhatten_table, MST_table):
+    #Heuristic: Manhatten Distance to the nearest unvisited city + total length of MST of unvisited cities
+    #First, we find the MST total length
+    mst_length = Find_Mst(unvisited_obj, MST_table, Manhatten_table)
+    if not unvisited_obj:
+        near_dist = 0
+    else:
+        near_dist = min([Heu_Manhatten(x, curNode) for x in unvisited_obj])
+    return mst_length + near_dist
 
 def astar_multi(maze):
     """
@@ -292,7 +313,67 @@ def astar_multi(maze):
     """
     # TODO: Write your code here
     #Variables needed
-    
+    #state representation in the class "state"
+
+    frontier = {}  # Mapping from state to f
+    visited = {}  # Mapping from state to g
+    prev = {}  # State to state, keep track of the previous state
+
+    objs = maze.getObjectives()
+    start = maze.getStart()
+
+    MST_table = {}  # Store mst total length
+    Manhatten_table = Compute_Manhatten(objs)
+    #Push the starting state
+    initState = state(start, 0, objs)
+    f_init = Heu_Multi(start, objs, Manhatten_table, MST_table)
+    frontier[initState] = f_init
+    prev[initState] = None
+
+
+    while True:
+        curState = min(frontier.items(), key=lambda x: x[1])[0]
+        #curState.print_state()
+        if(curState.isGoal()):
+            #Reach the goal state
+            #Backtrace to get the path
+            path = []
+            ite = curState
+            while ite is not None:
+                path.insert(0, ite.node)
+                ite = prev[ite]
+            return path
+        #Remove from frontier
+        frontier.pop(curState)
+        visited[curState] = curState.g
+        #Loop through neighbors
+        curNode = curState.node
+        cur_g = curState.g
+        cur_objs = curState.objs[:]
+        for node in maze.getNeighbors(curNode[0], curNode[1]):
+            new_g = cur_g + 1
+            new_objs = cur_objs[:]
+            if node in cur_objs:
+                new_objs.remove(node)
+            reached_state = state(node, new_g, new_objs)
+            flag = 0
+            for x in visited:
+                if x == reached_state:
+                    flag = 1
+                    break
+            if flag:
+                continue
+            flag = 0
+            for x in frontier:
+                if x == reached_state:
+                    flag = 1
+                    break
+            if flag:
+                continue
+
+            frontier[reached_state] = new_g + reached_state.getH_multi(
+                Heu_Multi,MST_table,Manhatten_table)
+            prev[reached_state] = curState
 
     return []
 
