@@ -18,6 +18,8 @@ files and classes when code is run, so be careful to not modify anything else.
 # maze is a Maze object based on the maze from the file specified by input filename
 # searchMethod is the search method specified by --method flag (bfs,dfs,astar,astar_multi,extra)
 import sys
+from queue import PriorityQueue
+
 
 def search(maze, searchMethod):
     return {
@@ -96,10 +98,8 @@ def astar(maze):
             return path
 
         for node in maze.getNeighbors(curNode[0], curNode[1]):
-            if maze.isWall(node[0], node[1]):
-                continue
             new_g = min_pair[1][0] + 1
-            if node in visited and visited[node][0] < new_g:
+            if node in visited:
                 continue
             if new_g < frontier.get(node,[sys.maxsize,sys.maxsize])[1]:
                 frontier[node] = [new_g, new_g + Heu_Manhatten(node, dest)]
@@ -110,6 +110,8 @@ def Heu_Corner(curNode, objs):
     #The function calculates the heuristic function for
     #the four-corners problem
     #It uses the sum of the Manhatten distance
+    if len(objs) == 0:
+        return 0
     unvisited = objs[:] #Perform a deep copy
     start = curNode
     heu = 0
@@ -121,64 +123,154 @@ def Heu_Corner(curNode, objs):
     return heu
 
 
+class state:
+    def __init__(self, curNode, g, objs):
+        self.node = curNode
+        self.g = g
+        self.objs = objs[:]  # A deep copy
+
+    def __eq__(self, other):
+        if self.node == other.node and set(self.objs) == set(other.objs):
+            return True
+        else:
+            return False
+
+    def __hash__(self):
+        return hash(repr(self))
+
+    def isGoal(self):
+        return len(self.objs) == 0
+
+    def getH_corner(self, heuristic):
+        return heuristic(self.node, self.objs)
+
+    def print_state(self):
+        print(self.node, self.objs)
+
 def astar_corner(maze):
-    """
-    Runs A star for part 2 of the assignment in the case where there are four corner objectives.
-        
-    @param maze: The maze to execute the search on.
-        
-    @return path: a list of tuples containing the coordinates of each state in the computed path
-        """
-    # TODO: Write your code here
-    frontier = {}   #Frontier list
-    visited = {}    #Explored list
-    total_path = [] #Total path
+    #state representation in the class "state"
 
+    frontier = {}  # Mapping from state to f
+    visited = {}    #Mapping from state to g
+    prev = {}  # State to state, keep track of the previous state
+
+    objs = maze.getObjectives()
     start = maze.getStart()
-    objs = maze.getObjectives() #Get dests
-    prev = {}   #Previous values
-    frontier[start] = [0, Heu_Corner(start, objs)]
-    path_start = start  #Keep track of the start of the current path
-    prev[start] = None
 
-    while len(frontier) != 0:
-        #Get min f_val pair
-        min_pair = min(frontier.items(), key=lambda x: x[1][1])  # Get by f_val
-        curNode = min_pair[0]
-        del frontier[curNode]
-        visited[curNode] = min_pair[1]
+    #Push the starting state
+    initState = state(start, 0, objs)
+    f_init = Heu_Corner(start, objs)
+    frontier[initState] = f_init
+    prev[initState] = None
 
-        if curNode in objs:
-            path = []   #Current path
-            ite = curNode   #Iterator for prev
-            while True:
+    while True:
+        curState = min(frontier.items(), key=lambda x: x[1])[0]
+        curState.print_state()
+        if(curState.isGoal()):
+            #Reach the goal state
+            #Backtrace to get the path
+            path = []
+            ite = curState
+            while ite is not None:
+                path.insert(0, ite.node)
                 ite = prev[ite]
-                if ite is None:
+            return path
+        #Remove from frontier
+        frontier.pop(curState)
+        visited[curState] = curState.g
+        #Loop through neighbors
+        curNode = curState.node
+        cur_g = curState.g
+        cur_objs = curState.objs[:]
+        for node in maze.getNeighbors(curNode[0],curNode[1]):
+            new_g = cur_g + 1
+            new_objs = cur_objs[:]
+            if node in cur_objs:
+                new_objs.remove(node)
+            reached_state = state(node, new_g, new_objs)
+            flag = 0
+            for x in visited:
+                if x == reached_state:
+                    flag = 1
                     break
-                path.insert(0, ite)
-            
-            total_path += path
-            objs.remove(curNode)  # Remove reached objective
-            prev = {}
-            prev[curNode] = None
-            frontier = {}  # Frontier list
-            visited = {}  # Explored list
-            frontier[curNode] = [0, Heu_Corner(start, objs)]
+            if flag:
+                continue
+            frontier[reached_state] = new_g + reached_state.getH_corner(
+                Heu_Corner)
+            prev[reached_state] = curState
 
-            if len(objs) == 0:
-                total_path.append(curNode)
-                return total_path
-            
-        for node in maze.getNeighbors(curNode[0], curNode[1]):
-            if maze.isWall(node[0], node[1]):
-                continue
-            new_g = min_pair[1][0] + 1
-            if node in visited and visited[node][0] < new_g:
-                continue
-            if new_g < frontier.get(node, [sys.maxsize, sys.maxsize])[1]:  #Tie-breaking here is important
-                frontier[node] = [new_g, new_g + Heu_Corner(node, objs)]
-                prev[node] = curNode
-    return []
+
+#A disjoint set structure we will need
+#Guided by the C++ version in CS225
+class dset:
+    def __init__(self):
+        self.upTree = {}
+    def addelement(self,node):
+        self.upTree[node] = -1
+    def find(self,node):#Return the root
+        if type(self.upTree[node]) == int and self.upTree[node] < 0:
+            return node
+        root = self.find(self.upTree[node])
+        self.upTree[node] = root #Path compression
+        return root
+    def setunion(self, a, b):
+        rootA = self.find(a)
+        rootB = self.find(b)
+        sizeA = self.upTree[rootA]
+        sizeB = self.upTree[rootB]
+        newSize = sizeA + sizeB
+        if sizeA <= sizeB:
+            self.upTree[rootB] = rootA
+            self.upTree[rootA] = newSize
+        else:
+            self.upTree[rootA] = rootB
+            self.upTree[rootB] = newSize
+    def size(self, elem):
+        root = self.find(elem)
+        return -1*self.upTree[root]
+    
+
+def Heu_Multi(curNode, unvisited_obj, mst_length):
+    #Heuristic: Manhatten Distance to the nearest unvisited city + total length of MST of unvisited cities
+
+    #First, we find the MST total length
+    near_dist = min([Heu_Manhatten(x, curNode) for x in unvisited_obj])
+    return mst_length + near_dist
+
+
+def Find_Mst(unvisited_obj, Manhatten_table):
+    path_cost = PriorityQueue()
+    total_path_cost = 0
+    path_collection = []
+    node_set = dset()
+    #Build up the Priority queue and disjoint set
+    for i in range(len(unvisited_obj)):
+        node_set.addelement(unvisited_obj[i])
+        for j in range(i+1, len(unvisited_obj)):
+            dist = Manhatten_table[(unvisited_obj[i], unvisited_obj[j])]
+            path_cost.put((dist, (unvisited_obj[i], unvisited_obj[j])))
+    #Compute MST
+    while node_set.size(unvisited_obj[0]) != len(unvisited_obj):
+        cur_path = path_cost.get()
+        node0 = list(cur_path[1])[0]
+        node1 = list(cur_path[1])[1]
+        if node_set.find(node0) == node_set.find(node1):
+            continue
+        node_set.setunion(node0,node1)
+        total_path_cost += cur_path[0]
+        path_collection.append(cur_path[1])
+    #Cache Value
+    print(total_path_cost)
+    return total_path_cost
+
+def Compute_Manhatten(unvisited_obj):
+    Manhatten_table = {}
+   #Find pairs of Manhatten distance
+    for i in range(len(unvisited_obj)):
+        for j in range(i+1, len(unvisited_obj)):
+            Manhatten_table[unvisited_obj[i], unvisited_obj[j]] = Heu_Manhatten(
+                unvisited_obj[i], unvisited_obj[j])
+    return Manhatten_table
 
 def astar_multi(maze):
     """
@@ -191,9 +283,17 @@ def astar_multi(maze):
     """
 
     """
-    Initial State:
+    Initial State: Agent at the start state and has not visited any other cities
+    Goal State: All other states have been visited
+    Gn: Cost of all edges so far
+    Heuristic: Manhatten Distance to the nearest unvisited city + total length of MST of unvisited cities
+    
+    Will a maintain a hash table that stores the MST length for given set of obj
     """
     # TODO: Write your code here
+    #Variables needed
+    
+
     return []
 
 
