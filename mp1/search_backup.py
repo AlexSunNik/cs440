@@ -593,3 +593,50 @@ flag = 0
                     break
             if flag:
                 continue
+
+"""
+def astar_multi(maze):
+    # TODO: Write your code here
+    # return path, num_states_explored
+    start = maze.getStart()
+    objs = maze.getObjectives()
+    edge_table = {}
+    heuristic_table = {}
+    # building graph for mst
+    heuristic_table, edge_table = Compute_Path(objs, maze)
+    visited = {}
+    cur_path = PriorityQueue()
+    objs = maze.getObjectives()
+    init_state = state(start, 0, objs)
+    #mst_weights = get_MST(maze, objs, heuristic_table)
+    MST_table = {}
+    mst_weights = Heu_Multi(start, objs, heuristic_table, MST_table, maze)
+    cur_path.put((mst_weights, init_state))
+
+    while True:
+        cur_state = cur_path.get()[1]
+        if cur_state.isGoal():
+            path = []
+            goals_list = []
+            ite = cur_state
+            while ite:
+                goals_list.append(ite.node)
+                ite = ite.prev
+            goals_list.reverse()
+            for i in range(len(goals_list) - 1):
+                path += edge_table[(goals_list[i], goals_list[i+1])][::-1][1:]
+            path.insert(0, start)
+            path[::-1]
+            #print(path)
+            return path
+
+        for next_obj in cur_state.objs:
+            n_cost = cur_state.g + heuristic_table[(cur_state.node, next_obj)] - 1
+            next_state = state(next_obj, n_cost, cur_state.objs[:])
+            next_state.prev = cur_state
+            if next_obj in next_state.objs:
+                next_state.objs.remove(next_obj)
+            mst_length = Heu_Multi(cur_state.node, cur_state.objs, heuristic_table, MST_table, maze)
+            tcost = n_cost + mst_length
+            cur_path.put((tcost, next_state))
+"""
