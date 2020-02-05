@@ -530,3 +530,66 @@ def Compute_Manhatten(unvisited_obj, maze):
                     maze, unvisited_obj[i], unvisited_obj[j])
     return Manhatten_table
 
+
+def get_MST(maze, goals, heuristic_list):
+    # Prim
+    if not len(goals):
+        return 0
+    visited = {}
+    visited[goals[0]] = True
+    MST_edges = []
+    mst_weights = 0
+    while len(visited) < len(goals):
+        qe = PriorityQueue()
+        for v in visited:
+            for n in goals:
+                if visited.get(n) == True:
+                    continue
+                new_edge = (v, n)
+                new_cost = heuristic_list[new_edge]-2
+                qe.put((new_cost, new_edge))
+        add_edge = qe.get()
+        MST_edges.append(add_edge[1])
+        mst_weights += add_edge[0]
+        visited[add_edge[1][1]] = True
+    #print(MST_edges, mst_weights)
+    return mst_weights
+
+
+def print_path(maze, path, state):
+    ret_path = []
+    goals_list = []
+    while state:
+        goals_list.append(state.node)
+        state = state.prev
+    goals_list.reverse()
+    for i in range(len(goals_list) - 1):
+        ret_path += path[(goals_list[i], goals_list[i+1])][::-1][1:]
+    start = maze.getStart()
+    ret_path.insert(0, start)
+    ret_path[::-1]
+    #print(ret_path)
+    return ret_path
+
+a = len(objs) - 1
+            if a:
+                tcost += len(next_state.objs)
+
+flag = 0
+           for i in range(len(frontier)):
+                if frontier[i][1] == reached_state:
+                    if new_g < frontier[i][1].g:
+                        frontier[i] = (new_f, reached_state)
+                        prev[reached_state] = curState
+                        heapq.heapify(frontier)
+                    flag = 1
+                    break
+            if flag:
+                continue
+
+            for x in visited:
+                if x == reached_state:
+                    flag = 1
+                    break
+            if flag:
+                continue
