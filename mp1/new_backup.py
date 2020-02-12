@@ -75,9 +75,7 @@ def Heu_Manhatten(curNode, dest):
 def astar(maze):
     """
     Runs A star for part 1 of the assignment.
-
     @param maze: The maze to execute the search on.
-
     @return path: a list of tuples containing the coordinates of each state in the computed path
     """
     # TODO: Write your code here
@@ -135,7 +133,7 @@ class state:
         self.node = curNode
         self.g = g
         self.objs = objs[:]  # A deep copy
-        self.prev = None
+        #self.prev = None
 
     def __eq__(self, other):
         if self.node == other.node and set(self.objs) == set(other.objs):
@@ -155,8 +153,8 @@ class state:
     def getH_corner(self, heuristic):
         return heuristic(self.node, self.objs)
 
-    def getH_multi(self, heuristic, MST_table, Manhatten_table, maze):
-        return heuristic(self.node, self.objs, Manhatten_table, MST_table, maze)
+    def getH_multi(self, MST_table, heuristic_table):
+        return Find_Mst(self.objs, MST_table, heuristic_table)
 
     def print_state(self):
         print("Node:", self.node, "Obj list:", self.objs)
@@ -287,9 +285,8 @@ class dset:
         root = self.find(elem)
         return -1*self.upTree[root]
 
-
 def Compute_Path(objs, maze):
-    Manhatten_table = {}
+    heuristic_table = {}
     edge_table = {}
     objs.append(maze.getStart())
     for i in range(len(objs)):
@@ -297,12 +294,11 @@ def Compute_Path(objs, maze):
             if i != j:
                 path, path_length = bfs_in_two(
                     maze, objs[i], objs[j])
-                Manhatten_table[objs[i], objs[j]] = path_length
+                heuristic_table[objs[i], objs[j]] = path_length
                 edge_table[objs[i], objs[j]] = path
-    return Manhatten_table, edge_table
+    return heuristic_table, edge_table
 
-
-def Find_Mst(unvisited_obj, MST_table, Manhatten_table):
+def Find_Mst(unvisited_obj, MST_table, heuristic_table):
     #Find MST using Kruskal's algorithm
     if not unvisited_obj:
         return 0
@@ -316,7 +312,7 @@ def Find_Mst(unvisited_obj, MST_table, Manhatten_table):
     for i in range(len(unvisited_obj)):
         node_set.addelement(unvisited_obj[i])
         for j in range(i+1, len(unvisited_obj)):
-            dist = Manhatten_table[(unvisited_obj[i], unvisited_obj[j])] - 2
+            dist = heuristic_table[(unvisited_obj[i], unvisited_obj[j])] - 2
             path_cost.put((dist, (unvisited_obj[i], unvisited_obj[j])))
     #Compute MST using customed disjoint set data structure
     while node_set.size(unvisited_obj[0]) != len(unvisited_obj):
@@ -331,122 +327,66 @@ def Find_Mst(unvisited_obj, MST_table, Manhatten_table):
     #Cache Value
     #Cache total_path_cost
     MST_table[frozenset(unvisited_obj)] = total_path_cost
-    #print("Path Collection",path_collection)
-    #print("Total path")
     return total_path_cost
 
-
-def Heu_Multi(curNode, unvisited_obj, Manhatten_table, MST_table, maze):
-    #Find the heuristic for multi obj. problem
-    #Heuristic: Manhatten Distance to the nearest unvisited city + total length of MST of unvisited cities
-    #First, we find the MST total length
-    mst_length = Find_Mst(unvisited_obj, MST_table, Manhatten_table)
-    #near_dist = min([bfs_in_two(maze, curNode, x)[1] for x in unvisited_obj]) - 2
-    return mst_length #+ mst_length
-
-
 def astar_multi(maze):
-    # TODO: Write your code here
-    # return path, num_states_explored
+    frontier = []
+    visited = {}  # Mapping from state to g
+    prev = {}  # State to state, keep track of the previous state
+
+    objs = maze.getObjectives()
     start = maze.getStart()
-    objs = maze.getObjectives()
-    edge_table = {}
-    heuristic_table = {}
-    # building graph for mst
-    heuristic_table, edge_table = Compute_Path(objs, maze)
-    #visited = {}
-    cur_path = PriorityQueue()
-    objs = maze.getObjectives()
-    init_state = state(start, 0, objs)
-    MST_table = {}
-    mst_weights = Heu_Multi(start, objs, heuristic_table, MST_table, maze)
-    cur_path.put((mst_weights, init_state))
+
+    MST_table = {}  # Store mst total length
+    heuristic_table, edge_table = Compute_Path(objs[:], maze)
+    #Push the starting state
+    initState = state(start, 0, objs)
+    f_init = Find_Mst(objs, MST_table, heuristic_table)
+    heapq.heappush(frontier, (f_init, initState))
+    prev[initState] = None
 
     while True:
-        cur_state = cur_path.get()[1]
+        #Pop off the state with the smallest f(g + h)
+        cur_state = heapq.heappop(frontier)[1]
+
+        #Reach goal state, start backtracing
         if cur_state.isGoal():
             path = []
             goals_list = []
             ite = cur_state
             while ite:
                 goals_list.append(ite.node)
-                ite = ite.prev
+                ite = prev[ite]
             goals_list.reverse()
-            print(goals_list)
             for i in range(len(goals_list) - 1):
                 path += edge_table[(goals_list[i], goals_list[i+1])][::-1][1:]
             path.insert(0, start)
             path[::-1]
             #print(path)
             return path
-
-        for next_obj in cur_state.objs:
-            new_g = cur_state.g + heuristic_table[(cur_state.node, next_obj)] - 1
-            next_state = state(next_obj, new_g, cur_state.objs[:])
-            next_state.prev = cur_state
-            if next_obj in next_state.objs:
-                next_state.objs.remove(next_obj)
-            mst_length = Heu_Multi(cur_state.node, cur_state.objs, heuristic_table, MST_table, maze)
-            new_f = new_g + mst_length
-            if len(objs) - 1:
-                new_f += len(next_state.objs)
-            cur_path.put((new_f, next_state))
+        #Remove from frontier
+        visited[cur_state] = cur_state.g
+        #Loop through neighbors
+        cur_node = cur_state.node
+        cur_g = cur_state.g
+        cur_objs = cur_state.objs[:]
+        for node in cur_state.objs:
+            new_g = cur_g + heuristic_table[cur_node, node] - 1
+            new_objs = cur_objs[:]
+            if node in cur_objs:
+                new_objs.remove(node)
+            reached_state = state(node, new_g, new_objs)
+            new_f = new_g + Find_Mst(new_objs,MST_table,heuristic_table)
+            #Check visited for repetition
+            heapq.heappush(frontier, (new_f, reached_state))
+            prev[reached_state] = cur_state
     return []
-
 
 def extra(maze):
     """
     Runs extra credit suggestion.
-
     @param maze: The maze to execute the search on.
-
     @return path: a list of tuples containing the coordinates of each state in the computed path
     """
     # TODO: Write your code here
-    #Using weighted Astar
-    #More towards greedy
-    start = maze.getStart()
-    objs = maze.getObjectives()
-    edge_table = {}
-    heuristic_table = {}
-    # building graph for mst
-    heuristic_table, edge_table = Compute_Path(objs, maze)
-    visited = {}
-    cur_path = PriorityQueue()
-    objs = maze.getObjectives()
-    init_state = state(start, 0, objs)
-    MST_table = {}
-    mst_weights = Heu_Multi(start, objs, heuristic_table, MST_table, maze) * 1.5
-    cur_path.put((mst_weights, init_state))
-
-    while True:
-        cur_state = cur_path.get()[1]
-        if cur_state.isGoal():
-            path = []
-            goals_list = []
-            ite = cur_state
-            while ite:
-                goals_list.append(ite.node)
-                ite = ite.prev
-            goals_list.reverse()
-            for i in range(len(goals_list) - 1):
-                path += edge_table[(goals_list[i], goals_list[i+1])][::-1][1:]
-            path.insert(0, start)
-            path[::-1]
-            #print(path)
-            return path
-
-        for next_obj in cur_state.objs:
-            new_g = cur_state.g + \
-                heuristic_table[(cur_state.node, next_obj)] - 1
-            next_state = state(next_obj, new_g, cur_state.objs[:])
-            next_state.prev = cur_state
-            if next_obj in next_state.objs:
-                next_state.objs.remove(next_obj)
-            mst_length = Heu_Multi(
-                cur_state.node, cur_state.objs, heuristic_table, MST_table, maze) * 1.5
-            new_f = new_g + mst_length
-            if len(objs) - 1:
-                new_f += len(next_state.objs)
-            cur_path.put((new_f, next_state))
     return []
