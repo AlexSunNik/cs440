@@ -1,0 +1,41 @@
+Backup
+
+   """
+    frontier = []
+    prev = {}
+    start = maze.getStart()
+    start_state = [0, start]
+    heappush(frontier, start_state)
+    prev[start] = None
+    visited = []
+    while frontier:
+        cur_state = heappop(frontier)
+        cur_node = cur_state[1]
+        print(cur_node)
+        cur_g = cur_state[0]
+        visited.append(cur_node)
+        cur_alpha = cur_node[0]
+        cur_beta = cur_node[1]
+        if maze.isObjective(cur_alpha, cur_beta):
+            print("Find")
+            path = []
+            while cur_node is not None:
+                print(cur_node)
+                path.insert(0, cur_node)
+                cur_node = prev[cur_node]
+            return path
+        
+        for angle in maze.getNeighbors(cur_alpha, cur_beta):
+            flag = 0
+            for visited in frontier:
+                if visited[1] == tuple(angle):
+                    flag = 1
+                    break
+            if flag:
+                continue
+            if angle not in visited and not maze.isWall(angle[0], angle[1]):
+                prev[angle] = cur_node
+                new_g = cur_g + 1
+                new_state = [new_g, tuple(angle)]
+                heappush(frontier, new_state)
+    """

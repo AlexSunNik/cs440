@@ -77,6 +77,8 @@ class Application:
         if not self.__human:
             print("Transforming a map configuration to a maze...")
             maze = transformToMaze(self.arm, self.goals, self.obstacles, self.window, granularity)
+            #Save testfile
+            maze.saveToFile('TestTransform.txt')
             print("Done!")
             print("Searching the path...")
             path = search(maze, searchMethod)

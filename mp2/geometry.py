@@ -26,8 +26,8 @@ def computeCoordinate(start, length, angle):
         Return:
             End position (int,int):of the arm link, (x-coordinate, y-coordinate)
     """
-    x_offset = round(np.cos(np.radians(angle)) * length)
-    y_offset = round(np.sin(np.radians(angle)) * length)
+    x_offset = int(np.cos(np.radians(angle)) * length)  #use int not round
+    y_offset = int(np.sin(np.radians(angle)) * length)
     return (start[0] + x_offset, start[1] - y_offset)
 
 def doesArmTouchObjects(armPosDist, objects, isGoal=False):
@@ -61,16 +61,16 @@ def doesArmTouchObjects(armPosDist, objects, isGoal=False):
                 numerator = np.abs(dy*x0 - dx*y0 + x2*y1 - y2*x1)
                 denom = np.sqrt(dy**2 + dx**2)
                 dist = numerator / denom  # Perpendicular distance from obj to line
-            elif dot_1_to_0 < 0:
+            elif dot_1_to_0 <= 0:
                 dist = np.sqrt((x1 - x0)**2 + (y1 - y0)**2)
-            elif dot_2_to_0 < 0:
+            elif dot_2_to_0 <= 0:
                 dist = np.sqrt((x2 - x0)**2 + (y2 - y0)**2)
             
             if isGoal:
-                if dist < r:
+                if dist <= r:
                     return True
             else:
-                if dist < r + pad_dist:
+                if dist <= (r + pad_dist):
                     return True
     return False
 
@@ -83,7 +83,12 @@ def doesArmTipTouchGoals(armEnd, goals):
         Return:
             True if arm tick touches any goal. False if not.
     """
-    return True in [((armEnd[0] - goal[0])**2 + (armEnd[1] - goal[1])**2)**0.5 < goal[2] for goal in goals]
+    for goal in goals:
+        dist = np.sqrt((armEnd[0] - goal[0])**2 + (armEnd[1] - goal[1])**2)
+        if dist <= goal[2]:
+            return True
+    return False
+    #return True in [((armEnd[0] - goal[0])**2 + (armEnd[1] - goal[1])**2)**0.5 <= goal[2] for goal in goals]
 
 
 def isArmWithinWindow(armPos, window):
@@ -99,9 +104,9 @@ def isArmWithinWindow(armPos, window):
     for arm_pos in armPos:
         start = arm_pos[0]
         end = arm_pos[1]
-        if start[0] < 0 or start[0] >= window[0] or start[1] < 0 or start[1] >= window[1]:
+        if start[0] < 0 or start[0] > window[0] or start[1] < 0 or start[1] > window[1]:
             return False
-        if end[0] < 0 or end[0] >= window[0] or end[1] < 0 or end[1] >= window[1]:
+        if end[0] < 0 or end[0] > window[0] or end[1] < 0 or end[1] > window[1]:
             return False
     return True
 

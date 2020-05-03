@@ -62,3 +62,4 @@ python mp2.py --map BasicMap --granularity=2 --trajectory=1 --method=bfs --save-
 ```
 
 python3 mp2.py --human --map Test1 --config test_config.txt
+python3 mp2.py --map Test1 --config test_config.txt --save-maze [MAZEFILE_PATH]
